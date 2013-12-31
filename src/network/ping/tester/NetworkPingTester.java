@@ -7,12 +7,12 @@ import javax.swing.*;
 import javax.swing.border.LineBorder;
 
 /**
- *
+ * NetworkPingTester is a visual tool to show network performance.
  * @author burke9077
  */
 public class NetworkPingTester extends JFrame implements ActionListener {
 
-    private static final int initialPanelCount = 3;
+    private final int INITIAL_PANEL_COUNT = 3;
     private JButton b_plus, b_minus;
     private JTextField tf_connections;
     private JPanel p_connections;
@@ -27,20 +27,20 @@ public class NetworkPingTester extends JFrame implements ActionListener {
         testingPanel.setTitle("Network Ping Tester");
         testingPanel.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         testingPanel.pack();
-        testingPanel.setLocation(
-                (Toolkit.getDefaultToolkit().getScreenSize().width
-                - testingPanel.getWidth())/2, 100);
-        testingPanel.setMaximumSize(
-                Toolkit.getDefaultToolkit().getScreenSize());
+        testingPanel.setLocation((Toolkit.getDefaultToolkit().getScreenSize().width - testingPanel.getWidth())/2, 100);
+        testingPanel.setMaximumSize(Toolkit.getDefaultToolkit().getScreenSize());
         testingPanel.setVisible(true);
     }
     
     /**
-     * NetworkPingTester creates the GUI and 
+     * NetworkPingTester creates the GUI and adds the default number
+     * of connections.
      */
     public NetworkPingTester() {
         // Setup the swing specific parameters
-        this.setLayout(new BorderLayout());
+        setLayout(new BorderLayout());
+        setIconImage(new ImageIcon(NetworkPingTester.class.getResource("/images/blue.gif")).getImage());
+        System.out.println(NetworkPingTester.class.getResource("/images/blue.gif"));
         // Setup the JPanel to be used for the title
         JPanel p_titlePanel = new JPanel();
         this.add(p_titlePanel, BorderLayout.NORTH);
@@ -52,7 +52,7 @@ public class NetworkPingTester extends JFrame implements ActionListener {
         p_numberOfConnections.add(new JLabel("Number of Connections:"));
         // Setup the number of panels
         tf_connections = new JTextField(3);
-        tf_connections.setText(Integer.toString(initialPanelCount));
+        tf_connections.setText(Integer.toString(INITIAL_PANEL_COUNT));
         tf_connections.addActionListener(this);
         p_numberOfConnections.add(tf_connections);
         // Setup the plus minus buttons
@@ -67,7 +67,7 @@ public class NetworkPingTester extends JFrame implements ActionListener {
         // Setup the connections panel
         p_connections = new JPanel();
         JScrollPane sp_connections = new JScrollPane(p_connections);
-        p_connections.setLayout(new GridLayout(0,3));
+        p_connections.setLayout(new GridLayout(0,3,5,5));
         this.add(sp_connections, BorderLayout.CENTER);
         populateConnections(tf_connections, p_connections);
     }
@@ -78,15 +78,13 @@ public class NetworkPingTester extends JFrame implements ActionListener {
      * @param _desiredConnectionCount
      * @param _connectionPanel 
      */
-    public void populateConnections(
-            JTextField _desiredConnectionCount, JPanel _connectionPanel) {
+    public void populateConnections(JTextField _desiredConnectionCount, JPanel _connectionPanel) {
         try {
-            while (Integer.parseInt(_desiredConnectionCount.getText()) !=
-                    _connectionPanel.getComponentCount()) {
-                if (Integer.parseInt(_desiredConnectionCount.getText()) > 
-                        _connectionPanel.getComponentCount()) {
+            while (Integer.parseInt(_desiredConnectionCount.getText()) != _connectionPanel.getComponentCount()) {
+                if (Integer.parseInt(_desiredConnectionCount.getText()) > _connectionPanel.getComponentCount()) {
                     // User wants more connections
                     _connectionPanel.add(new Connection());
+                    this.validate();
                     this.pack();
                 } else {
                     // User wants to remove a connection
@@ -100,8 +98,7 @@ public class NetworkPingTester extends JFrame implements ActionListener {
                 }
             }
         } catch (Exception e) {
-            tf_connections.setText(Integer.toString(
-                    p_connections.getComponentCount()));
+            tf_connections.setText(Integer.toString(p_connections.getComponentCount()));
         }
         
     }
@@ -114,21 +111,16 @@ public class NetworkPingTester extends JFrame implements ActionListener {
          * JTextField.
          */
         if (ae.getSource() == b_plus) {
-            tf_connections.setText(
-                    Integer.toString(p_connections.getComponentCount()+1));
+            tf_connections.setText(Integer.toString(p_connections.getComponentCount()+1));
             populateConnections(tf_connections, p_connections);
         } else if (ae.getSource() == b_minus) {
-            tf_connections.setText(
-                    Integer.toString(p_connections.getComponentCount()-1));
+            tf_connections.setText(Integer.toString(p_connections.getComponentCount()-1));
             populateConnections(tf_connections, p_connections);
         } else if (ae.getSource() == tf_connections) {
             try {
-                int desiredConnections = Integer.parseInt(
-                        tf_connections.getText());
                 populateConnections(tf_connections, p_connections);
             } catch (Exception e) {
-                tf_connections.setText(Integer.toString(
-                        p_connections.getComponentCount()));
+                tf_connections.setText(Integer.toString(p_connections.getComponentCount()));
             }
         }
     }

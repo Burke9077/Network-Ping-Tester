@@ -1,14 +1,16 @@
 package network.ping.tester;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 
 /**
  *
  * @author burke9077
  */
-public class Connection extends JButton {
+public class Connection extends JPanel {
     private final int ACTION_BUTTON_SIZE = 15;
     private JPanel p_container;
     private JTextField tf_address;
@@ -17,11 +19,16 @@ public class Connection extends JButton {
     private JLabel l_success;
     private String s_successPercentage = "---";
     private double d_successPercentage;
-    private JButton b_start, b_pause, b_stop, b_restart;
+    private JButton b_start, b_pause, b_stop, b_restart, b_stats;
     
+    /**
+     * Connection creates the graphical interface for users to enter addresses
+     * and the listeners for action buttons, and to launch statistics.
+     */
     public Connection() {
         // Setup swing specifics
         this.setOpaque(false);
+        this.setBorder(new LineBorder(Color.BLACK, 1, false));
         // Setup the containing JPanel
         p_container = new JPanel();
         p_container.setLayout(new BorderLayout());
@@ -61,13 +68,16 @@ public class Connection extends JButton {
         b_pause = new JButton(new ImageIcon(new ImageIcon(NetworkPingTester.class.getResource("/images/pause.png")).getImage().getScaledInstance(ACTION_BUTTON_SIZE, ACTION_BUTTON_SIZE, java.awt.Image.SCALE_SMOOTH)));
         b_stop = new JButton(new ImageIcon(new ImageIcon(NetworkPingTester.class.getResource("/images/stop.png")).getImage().getScaledInstance(ACTION_BUTTON_SIZE, ACTION_BUTTON_SIZE, java.awt.Image.SCALE_SMOOTH)));
         b_restart = new JButton(new ImageIcon(new ImageIcon(NetworkPingTester.class.getResource("/images/reup.png")).getImage().getScaledInstance(ACTION_BUTTON_SIZE, ACTION_BUTTON_SIZE, java.awt.Image.SCALE_SMOOTH)));
+        b_stats = new JButton(new ImageIcon(new ImageIcon(NetworkPingTester.class.getResource("/images/stats.png")).getImage().getScaledInstance(ACTION_BUTTON_SIZE, ACTION_BUTTON_SIZE, java.awt.Image.SCALE_SMOOTH)));
         b_start.setBorder(null);
         b_pause.setBorder(null);
         b_stop.setBorder(null);
         b_restart.setBorder(null);
+        b_stats.setBorder(null);
         p_actionButtons.add(b_start);
         p_actionButtons.add(b_pause);
         p_actionButtons.add(b_stop);
         p_actionButtons.add(b_restart);
+        p_actionButtons.add(b_stats);
     }
 }
