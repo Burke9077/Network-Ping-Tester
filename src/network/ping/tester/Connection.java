@@ -9,12 +9,15 @@ import javax.swing.border.EmptyBorder;
  * @author burke9077
  */
 public class Connection extends JButton {
+    private final int ACTION_BUTTON_SIZE = 15;
     private JPanel p_container;
     private JTextField tf_address;
     private JButton b_test;
     private JPanel p_address;
     private JLabel l_success;
     private String s_successPercentage = "---";
+    private double d_successPercentage;
+    private JButton b_start, b_pause, b_stop, b_restart;
     
     public Connection() {
         // Setup swing specifics
@@ -52,7 +55,19 @@ public class Connection extends JButton {
         p_container.add(p_bottomFormatting, BorderLayout.SOUTH);
         // Setup action buttons
         JPanel p_actionButtons = new JPanel();
-        p_actionButtons.setOpaque(true);
+        p_actionButtons.setOpaque(false);
         p_bottomFormatting.add(p_actionButtons, BorderLayout.CENTER);
+        b_start = new JButton(new ImageIcon(new ImageIcon(NetworkPingTester.class.getResource("/images/play.png")).getImage().getScaledInstance(ACTION_BUTTON_SIZE, ACTION_BUTTON_SIZE, java.awt.Image.SCALE_SMOOTH)));
+        b_pause = new JButton(new ImageIcon(new ImageIcon(NetworkPingTester.class.getResource("/images/pause.png")).getImage().getScaledInstance(ACTION_BUTTON_SIZE, ACTION_BUTTON_SIZE, java.awt.Image.SCALE_SMOOTH)));
+        b_stop = new JButton(new ImageIcon(new ImageIcon(NetworkPingTester.class.getResource("/images/stop.png")).getImage().getScaledInstance(ACTION_BUTTON_SIZE, ACTION_BUTTON_SIZE, java.awt.Image.SCALE_SMOOTH)));
+        b_restart = new JButton(new ImageIcon(new ImageIcon(NetworkPingTester.class.getResource("/images/reup.png")).getImage().getScaledInstance(ACTION_BUTTON_SIZE, ACTION_BUTTON_SIZE, java.awt.Image.SCALE_SMOOTH)));
+        b_start.setBorder(null);
+        b_pause.setBorder(null);
+        b_stop.setBorder(null);
+        b_restart.setBorder(null);
+        p_actionButtons.add(b_start);
+        p_actionButtons.add(b_pause);
+        p_actionButtons.add(b_stop);
+        p_actionButtons.add(b_restart);
     }
 }

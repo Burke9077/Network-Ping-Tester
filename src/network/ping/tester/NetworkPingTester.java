@@ -4,7 +4,6 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 
 /**
@@ -13,8 +12,6 @@ import javax.swing.border.LineBorder;
  */
 public class NetworkPingTester extends JFrame implements ActionListener {
 
-    private static final int MINIMUM_WIDTH = 750;
-    private static final int MINIMUM_HEIGHT = 250;
     private static final int initialPanelCount = 3;
     private JButton b_plus, b_minus;
     private JTextField tf_connections;
@@ -32,9 +29,9 @@ public class NetworkPingTester extends JFrame implements ActionListener {
         testingPanel.pack();
         testingPanel.setLocation(
                 (Toolkit.getDefaultToolkit().getScreenSize().width
-                - testingPanel.getWidth())/2,
-                (Toolkit.getDefaultToolkit().getScreenSize().height
-                - testingPanel.getHeight())/2);
+                - testingPanel.getWidth())/2, 100);
+        testingPanel.setMaximumSize(
+                Toolkit.getDefaultToolkit().getScreenSize());
         testingPanel.setVisible(true);
     }
     
@@ -69,8 +66,9 @@ public class NetworkPingTester extends JFrame implements ActionListener {
         p_numberOfConnections.add(b_minus);
         // Setup the connections panel
         p_connections = new JPanel();
+        JScrollPane sp_connections = new JScrollPane(p_connections);
         p_connections.setLayout(new GridLayout(0,3));
-        this.add(p_connections, BorderLayout.CENTER);
+        this.add(sp_connections, BorderLayout.CENTER);
         populateConnections(tf_connections, p_connections);
     }
     
