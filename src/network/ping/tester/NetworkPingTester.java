@@ -3,6 +3,11 @@ package network.ping.tester;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 
@@ -39,8 +44,14 @@ public class NetworkPingTester extends JFrame implements ActionListener {
     public NetworkPingTester() {
         // Setup the swing specific parameters
         setLayout(new BorderLayout());
-        setIconImage(new ImageIcon(NetworkPingTester.class.getResource("/images/blue.gif")).getImage());
-        System.out.println(NetworkPingTester.class.getResource("/images/blue.gif"));
+        try {
+            InputStream iconInputStream = NetworkPingTester.class.getResourceAsStream("/images/logo.png");
+            BufferedImage myIcon = ImageIO.read(iconInputStream);
+            setIconImage(myIcon);
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+        System.out.println(getIconImage());
         // Setup the JPanel to be used for the title
         JPanel p_titlePanel = new JPanel();
         this.add(p_titlePanel, BorderLayout.NORTH);
