@@ -2,8 +2,12 @@ package network.ping.tester;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.GridLayout;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.util.ArrayList;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -24,6 +28,7 @@ public class Connection extends JPanel implements ActionListener {
     private double d_successPercentage = 0;
     private JButton b_start, b_pause, b_stop, b_restart, b_stats;
     private PingPerformer pp_ping;
+    private StatisticsView sv_stats;
     private ArrayList<PingStatistic> resultSet = new ArrayList<>(0);
     
     /**
@@ -99,6 +104,11 @@ public class Connection extends JPanel implements ActionListener {
         b_stats.setContentAreaFilled(false);
         b_stats.setFocusPainted(false);
         b_stats.setOpaque(false);
+        b_start.setToolTipText("Start pinging specified host");
+        b_pause.setToolTipText("Pause pinging in progress");
+        b_stop.setToolTipText("Stop pinging in progress");
+        b_restart.setToolTipText("Restart pinging, clearing statistics");
+        b_stats.setToolTipText("Launch the statistics viewer");
         p_actionButtons.add(b_start);
         p_actionButtons.add(b_pause);
         p_actionButtons.add(b_stop);
@@ -106,6 +116,8 @@ public class Connection extends JPanel implements ActionListener {
         p_actionButtons.add(b_stats);
         // Setup the ping performer
         pp_ping = new PingPerformer("Stop", DEFAULT_MILLISECONDS_BETWEEN_PINGS);
+        // Setup the statistics viewer
+        sv_stats = new StatisticsView();
         // Add action listeners
         tf_address.addActionListener(this);
         b_test.addActionListener(this);
@@ -113,14 +125,18 @@ public class Connection extends JPanel implements ActionListener {
         b_stop.addActionListener(this);
         b_pause.addActionListener(this);
         b_restart.addActionListener(this);
+        b_stats.addActionListener(this);
     }
     
     @Override
     public void actionPerformed(ActionEvent ae) {
         if ((ae.getSource() == tf_address) || (ae.getSource() == b_test) || (ae.getSource() == b_start)) {
             pp_ping = new PingPerformer("Stop", DEFAULT_MILLISECONDS_BETWEEN_PINGS);
+            Thread t_ping = new Thread(pp_ping);
             pp_ping.setStatus("Run");
-            pp_ping.start();
+            resultSet.clear();
+            updateLabel();
+            t_ping.start();
         } else if (ae.getSource() == b_stop) {
             pp_ping.setStatus("Stop");
             updateLabel();
@@ -131,6 +147,8 @@ public class Connection extends JPanel implements ActionListener {
             pp_ping = new PingPerformer("Stop", DEFAULT_MILLISECONDS_BETWEEN_PINGS);
             pp_ping.setStatus("Run");
             updateLabel();
+        } else if (ae.getSource() == b_stats) {
+            sv_stats.setStatsVisible(true);
         }
     }
     
@@ -155,7 +173,7 @@ public class Connection extends JPanel implements ActionListener {
         l_success.setText(getSuccessRatio()*100 + "%");
     }
     
-    private class PingPerformer extends Thread {
+    private class PingPerformer implements Runnable {
         private String s_status;
         private long l_millisecondsBetweenPings;
 
@@ -230,5 +248,75 @@ public class Connection extends JPanel implements ActionListener {
                 resultSet.clear();
             }
         }
+    }
+    private class StatisticsView extends JFrame implements WindowListener {
+        private JLabel l_successfulPings = new JLabel("Successful Pings: ");
+        
+        public StatisticsView() {
+            // Setup the swing specifics
+            setSize(700,500);
+            setLocation((Toolkit.getDefaultToolkit().getScreenSize().width - getWidth())/2, (Toolkit.getDefaultToolkit().getScreenSize().height - getHeight())/2);
+            setIconImage(new ImageIcon(NetworkPingTester.class.getResource("/images/stats.png")).getImage());
+            // Setup the tabs
+            JTabbedPane tp_panes = new JTabbedPane();
+            add(tp_panes);
+            JPanel p_overview = new JPanel();
+            JPanel p_results = new JPanel();
+            JPanel p_time = new JPanel();
+            tp_panes.addTab("Overview", null, p_overview, "Overview of ping results");
+            tp_panes.addTab("Ping Results", null, p_results, "Percentage chart of ping results");
+            tp_panes.addTab("Latency", null, p_time, "Latency results of successful pings");
+            // Setup the overview JPanel
+            p_overview.setOpaque(false);
+            p_overview.setBorder(new EmptyBorder(5,5,5,5));
+            p_overview.setLayout(new GridLayout(0,1));
+            p_overview.add(l_successfulPings);
+        }
+        
+        /**
+         * setStatsVisiable is used to show and hide the statistics JFrame.
+         * @param isVisable 
+         */
+        public void setStatsVisible(boolean isVisable) {
+            if (isVisable) {
+                setTitle("Statistics for connection to " + tf_address.getText());
+                setVisible(true);
+            } else {
+                setVisible(false);
+            }
+        }
+        
+        public int getNumOfSuccessfulPings() {
+            int success = 0;
+            for (int i=0; i<resultSet.size(); i++) {
+                if (resultSet.get(i).getSuccess()) {
+                    success++;
+                }
+            }
+            return success;
+        }
+
+        @Override
+        public void windowOpened(WindowEvent e) {}
+
+        @Override
+        public void windowClosing(WindowEvent e) {
+            setStatsVisible(false);
+        }
+
+        @Override
+        public void windowClosed(WindowEvent e) {}
+
+        @Override
+        public void windowIconified(WindowEvent e) {}
+
+        @Override
+        public void windowDeiconified(WindowEvent e) {}
+
+        @Override
+        public void windowActivated(WindowEvent e) {}
+
+        @Override
+        public void windowDeactivated(WindowEvent e) {}
     }
 }
