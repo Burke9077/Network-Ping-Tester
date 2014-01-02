@@ -4,9 +4,6 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -122,21 +119,17 @@ public class Connection extends JPanel implements ActionListener {
     public void actionPerformed(ActionEvent ae) {
         if ((ae.getSource() == tf_address) || (ae.getSource() == b_test) || (ae.getSource() == b_start)) {
             pp_ping = new PingPerformer("Stop", DEFAULT_MILLISECONDS_BETWEEN_PINGS);
-            if (pp_ping.setInetAddress(tf_address.getText())) {
-                // We successfully resolved the address, we can proceed
-                pp_ping.start();
-            } else {
-                // Notify the user of the failure
-                // MATT, do work here
-            }
+            pp_ping.setStatus("Run");
+            pp_ping.start();
         } else if (ae.getSource() == b_stop) {
             pp_ping.setStatus("Stop");
-            resultSet.clear();
             updateLabel();
         } else if (ae.getSource() == b_pause) {
             pp_ping.setStatus("Pause");
         } else if (ae.getSource() == b_restart) {
             resultSet.clear();
+            pp_ping = new PingPerformer("Stop", DEFAULT_MILLISECONDS_BETWEEN_PINGS);
+            pp_ping.setStatus("Run");
             updateLabel();
         }
     }
@@ -165,26 +158,12 @@ public class Connection extends JPanel implements ActionListener {
     private class PingPerformer extends Thread {
         private String s_status;
         private long l_millisecondsBetweenPings;
-        private int i_pingMaximumDuration = 5000;
-        private InetAddress inet;
 
         public PingPerformer(String statusWord, long millisecondsBetweenPings) {
             s_status = statusWord;
             l_millisecondsBetweenPings = millisecondsBetweenPings;
         }
-        
-        public boolean setInetAddress(String address) {
-            try {
-                inet = InetAddress.getByName(address);
-                setStatus("Run");
-                return true;
-            } catch (UnknownHostException ex) {
-                ex.printStackTrace();
-                setStatus("Stop");
-                return false;
-            }
-        }
-        
+                
         // Add setters and getters for internal variables
         public synchronized void setStatus(String statusWord) {
             s_status = statusWord;
@@ -193,26 +172,49 @@ public class Connection extends JPanel implements ActionListener {
             return s_status;
         }
         
+        /**
+         * isReachable issues a ICMP echo request using the host machine's
+         * native utility. 
+         * Stolen from:
+         * http://stackoverflow.com/questions/2448666/how-to-do-a-true-java-ping-from-windows
+         * @param address
+         * @return reachability boolean
+         */
+        public boolean isReachable(String address) {
+            try{
+                String cmd = "";
+                if(System.getProperty("os.name").startsWith("Windows")) {   
+                        // For Windows
+                        cmd = "ping -n 1 " + tf_address.getText();
+                } else {
+                        // For Linux and OSX
+                        cmd = "ping -c 1 " + tf_address.getText();
+                }
+                Process myProcess = Runtime.getRuntime().exec(cmd);
+                myProcess.waitFor();
+                if(myProcess.exitValue() == 0) {
+                    return true;
+                } else {
+                    return false;
+                }
+            } catch(Exception e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+        
         @Override
         public void run() {
             while ((s_status.equals("Run")) || (s_status.equals("Pause"))) {
                 if (s_status.equals("Run")) {
-                    String result = "General Failure";
-                    long timeDifference = 0;
-                    long timeBeforeExecution = System.nanoTime();
-                    boolean networkIsReachable = false;
-                    try {
-                        networkIsReachable = inet.isReachable(i_pingMaximumDuration);
-                        if (inet.isReachable(i_pingMaximumDuration)) {
-                            result = "Success";
-                        } 
-                    } catch (IOException ex) {
-                        // An expectable error has occurred, mark as a failure
-                        result = ex.getLocalizedMessage();
-                    } finally {
-                        long timeAfterExecution = System.nanoTime();
-                        resultSet.add(new PingStatistic(networkIsReachable, result, timeBeforeExecution, timeAfterExecution));
-                    }
+                    // Need to ping supplied destination based on operating system
+                    long l_timeBeforePing, l_timeAfterPing;
+                    boolean b_isReachable;
+                    String address = tf_address.getText();
+                    l_timeBeforePing = System.nanoTime();
+                    b_isReachable = isReachable(address);
+                    l_timeAfterPing = System.nanoTime();
+                    resultSet.add(new PingStatistic(b_isReachable, l_timeBeforePing, l_timeAfterPing));
                 }
                 updateLabel();
                 // We have completed this round, sleep for defined duration
