@@ -51,7 +51,6 @@ public class NetworkPingTester extends JFrame implements ActionListener {
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }
-        System.out.println(getIconImage());
         // Setup the JPanel to be used for the title
         JPanel p_titlePanel = new JPanel();
         this.add(p_titlePanel, BorderLayout.NORTH);
@@ -109,6 +108,7 @@ public class NetworkPingTester extends JFrame implements ActionListener {
                 }
             }
         } catch (Exception e) {
+            e.printStackTrace();
             tf_connections.setText(Integer.toString(p_connections.getComponentCount()));
         }
         
@@ -131,6 +131,7 @@ public class NetworkPingTester extends JFrame implements ActionListener {
             try {
                 populateConnections(tf_connections, p_connections);
             } catch (Exception e) {
+                e.printStackTrace();
                 tf_connections.setText(Integer.toString(p_connections.getComponentCount()));
             }
         }

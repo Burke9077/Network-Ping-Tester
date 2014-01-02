@@ -2,6 +2,12 @@ package network.ping.tester;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -10,16 +16,18 @@ import javax.swing.border.LineBorder;
  *
  * @author burke9077
  */
-public class Connection extends JPanel {
+public class Connection extends JPanel implements ActionListener {
     private final int ACTION_BUTTON_SIZE = 15;
+    private final long DEFAULT_MILLISECONDS_BETWEEN_PINGS = 1000;
     private JPanel p_container;
     private JTextField tf_address;
     private JButton b_test;
     private JPanel p_address;
     private JLabel l_success;
-    private String s_successPercentage = "---";
-    private double d_successPercentage;
+    private double d_successPercentage = 0;
     private JButton b_start, b_pause, b_stop, b_restart, b_stats;
+    private PingPerformer pp_ping;
+    private ArrayList<PingStatistic> resultSet = new ArrayList<>(0);
     
     /**
      * Connection creates the graphical interface for users to enter addresses
@@ -53,7 +61,7 @@ public class Connection extends JPanel {
         p_simpleStats.setOpaque(false);
         p_container.add(p_simpleStats);
         p_simpleStats.add(new JLabel("Percent Success: "));
-        l_success = new JLabel(s_successPercentage + "%");
+        l_success = new JLabel(d_successPercentage + "%");
         p_simpleStats.add(l_success);
         // Set up separator and action buttons
         JPanel p_bottomFormatting = new JPanel();
@@ -99,5 +107,126 @@ public class Connection extends JPanel {
         p_actionButtons.add(b_stop);
         p_actionButtons.add(b_restart);
         p_actionButtons.add(b_stats);
+        // Setup the ping performer
+        pp_ping = new PingPerformer("Stop", DEFAULT_MILLISECONDS_BETWEEN_PINGS);
+        // Add action listeners
+        tf_address.addActionListener(this);
+        b_test.addActionListener(this);
+        b_start.addActionListener(this);
+        b_stop.addActionListener(this);
+        b_pause.addActionListener(this);
+        b_restart.addActionListener(this);
+    }
+    
+    @Override
+    public void actionPerformed(ActionEvent ae) {
+        if ((ae.getSource() == tf_address) || (ae.getSource() == b_test) || (ae.getSource() == b_start)) {
+            pp_ping = new PingPerformer("Stop", DEFAULT_MILLISECONDS_BETWEEN_PINGS);
+            if (pp_ping.setInetAddress(tf_address.getText())) {
+                // We successfully resolved the address, we can proceed
+                pp_ping.start();
+            } else {
+                // Notify the user of the failure
+                // MATT, do work here
+            }
+        } else if (ae.getSource() == b_stop) {
+            pp_ping.setStatus("Stop");
+            resultSet.clear();
+            updateLabel();
+        } else if (ae.getSource() == b_pause) {
+            pp_ping.setStatus("Pause");
+        } else if (ae.getSource() == b_restart) {
+            resultSet.clear();
+            updateLabel();
+        }
+    }
+    
+    public double getSuccessRatio() {
+        if (resultSet.isEmpty()) {
+            return 0;
+        } else {
+            int success = 0;
+            int failure = 0;
+            for (int i=0; i<resultSet.size(); i++) {
+                if (((PingStatistic)resultSet.get(i)).getSuccess()) {
+                    success++;
+                } else {
+                    failure++;
+                }
+            }
+            return success/(success+failure);
+        }
+    }
+    
+    public void updateLabel() {
+        l_success.setText(getSuccessRatio()*100 + "%");
+    }
+    
+    private class PingPerformer extends Thread {
+        private String s_status;
+        private long l_millisecondsBetweenPings;
+        private int i_pingMaximumDuration = 5000;
+        private InetAddress inet;
+
+        public PingPerformer(String statusWord, long millisecondsBetweenPings) {
+            s_status = statusWord;
+            l_millisecondsBetweenPings = millisecondsBetweenPings;
+        }
+        
+        public boolean setInetAddress(String address) {
+            try {
+                inet = InetAddress.getByName(address);
+                setStatus("Run");
+                return true;
+            } catch (UnknownHostException ex) {
+                ex.printStackTrace();
+                setStatus("Stop");
+                return false;
+            }
+        }
+        
+        // Add setters and getters for internal variables
+        public synchronized void setStatus(String statusWord) {
+            s_status = statusWord;
+        }
+        public String getStatus() {
+            return s_status;
+        }
+        
+        @Override
+        public void run() {
+            while ((s_status.equals("Run")) || (s_status.equals("Pause"))) {
+                if (s_status.equals("Run")) {
+                    String result = "General Failure";
+                    long timeDifference = 0;
+                    long timeBeforeExecution = System.nanoTime();
+                    boolean networkIsReachable = false;
+                    try {
+                        networkIsReachable = inet.isReachable(i_pingMaximumDuration);
+                        if (inet.isReachable(i_pingMaximumDuration)) {
+                            result = "Success";
+                        } 
+                    } catch (IOException ex) {
+                        // An expectable error has occurred, mark as a failure
+                        result = ex.getLocalizedMessage();
+                    } finally {
+                        long timeAfterExecution = System.nanoTime();
+                        resultSet.add(new PingStatistic(networkIsReachable, result, timeBeforeExecution, timeAfterExecution));
+                    }
+                }
+                updateLabel();
+                // We have completed this round, sleep for defined duration
+                try {
+                    Thread.sleep(l_millisecondsBetweenPings);
+                } catch (InterruptedException ex) {
+                    // An error has prevented sleep, stop operation
+                    ex.printStackTrace();
+                    setStatus("Stop");
+                }
+            }
+            if (s_status.equals("Stop")) {
+                resultSet.clear();
+            }
+        }
     }
 }
