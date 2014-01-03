@@ -280,6 +280,9 @@ public class Connection extends JPanel implements ActionListener {
         private JLabel l_averageTotalLatency = new JLabel();
         private JLabel l_averageDeviationInSuccessfulPingDuration = new JLabel();
         
+        /**
+         * StatisticsView shows information relating to the ping test's results.
+         */
         public StatisticsView() {
             // Setup the swing specifics
             setSize(700,500);
