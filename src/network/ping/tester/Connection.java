@@ -1,14 +1,15 @@
 package network.ping.tester;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.GridLayout;
-import java.awt.Toolkit;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.lang.Thread.State;
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -29,6 +30,8 @@ public class Connection extends JPanel implements ActionListener {
     private JButton b_start, b_pause, b_stop, b_restart, b_stats;
     private PingPerformer pp_ping;
     private StatisticsView sv_stats;
+    private Thread t_ping;
+    private Thread t_stats;
     private ArrayList<PingStatistic> resultSet = new ArrayList<>(0);
     
     /**
@@ -115,7 +118,7 @@ public class Connection extends JPanel implements ActionListener {
         p_actionButtons.add(b_restart);
         p_actionButtons.add(b_stats);
         // Setup the ping performer
-        pp_ping = new PingPerformer("Stop", DEFAULT_MILLISECONDS_BETWEEN_PINGS);
+        pp_ping = new PingPerformer(PingPerformer.STOP, DEFAULT_MILLISECONDS_BETWEEN_PINGS);
         // Setup the statistics viewer
         sv_stats = new StatisticsView();
         // Add action listeners
@@ -130,34 +133,50 @@ public class Connection extends JPanel implements ActionListener {
     
     @Override
     public void actionPerformed(ActionEvent ae) {
-        if ((ae.getSource() == tf_address) || (ae.getSource() == b_test) || (ae.getSource() == b_start)) {
-            pp_ping = new PingPerformer("Stop", DEFAULT_MILLISECONDS_BETWEEN_PINGS);
-            Thread t_ping = new Thread(pp_ping);
-            pp_ping.setStatus("Run");
+        if (ae.getSource() == b_restart) {
             resultSet.clear();
-            updateLabel();
+            t_ping.interrupt();
+            pp_ping = new PingPerformer(PingPerformer.STOP, DEFAULT_MILLISECONDS_BETWEEN_PINGS);
+            t_ping = new Thread(pp_ping);
+            pp_ping.setStatus(PingPerformer.RUN);
             t_ping.start();
+        } else if ((ae.getSource() == tf_address) || (ae.getSource() == b_test) || (ae.getSource() == b_start)) {
+            // Check to see if the user asked to stop (saving stats)
+            if (pp_ping.getStatus() == PingPerformer.STOP) {
+                resultSet.clear();
+            }
+            // Ensure that it isn't already running, then run
+            if (pp_ping.getStatus() != PingPerformer.RUN) {
+                t_ping = new Thread(pp_ping);
+                pp_ping.setStatus(PingPerformer.RUN);
+                t_ping.start();
+            }
         } else if (ae.getSource() == b_stop) {
-            pp_ping.setStatus("Stop");
-            updateLabel();
+            pp_ping.setStatus(PingPerformer.STOP);
         } else if (ae.getSource() == b_pause) {
-            pp_ping.setStatus("Pause");
-        } else if (ae.getSource() == b_restart) {
-            resultSet.clear();
-            pp_ping = new PingPerformer("Stop", DEFAULT_MILLISECONDS_BETWEEN_PINGS);
-            pp_ping.setStatus("Run");
-            updateLabel();
+            // Make sure that the performer wasn't previously stopped, then pause
+            if (pp_ping.getStatus() != PingPerformer.STOP) {
+                pp_ping.setStatus(PingPerformer.PAUSE);
+            }
         } else if (ae.getSource() == b_stats) {
             sv_stats.setStatsVisible(true);
+            t_stats = new Thread(sv_stats);
+            t_stats.start();
         }
+    }
+    
+    public double round(double unrounded, int precision, int roundingMode) {
+        BigDecimal bd = new BigDecimal(unrounded);
+        BigDecimal rounded = bd.setScale(precision, roundingMode);
+        return rounded.doubleValue();
     }
     
     public double getSuccessRatio() {
         if (resultSet.isEmpty()) {
             return 0;
         } else {
-            int success = 0;
-            int failure = 0;
+            double success = 0;
+            double failure = 0;
             for (int i=0; i<resultSet.size(); i++) {
                 if (((PingStatistic)resultSet.get(i)).getSuccess()) {
                     success++;
@@ -165,29 +184,32 @@ public class Connection extends JPanel implements ActionListener {
                     failure++;
                 }
             }
-            return success/(success+failure);
+            return round(success/(success+failure)*100, 5, BigDecimal.ROUND_HALF_UP);
         }
     }
     
     public void updateLabel() {
-        l_success.setText(getSuccessRatio()*100 + "%");
+        l_success.setText(getSuccessRatio() + "%");
     }
     
     private class PingPerformer implements Runnable {
-        private String s_status;
+        private int i_status;
         private long l_millisecondsBetweenPings;
+        public static final int RUN = 0;
+        public static final int PAUSE = 1;
+        public static final int STOP = 2;
 
-        public PingPerformer(String statusWord, long millisecondsBetweenPings) {
-            s_status = statusWord;
+        public PingPerformer(int statusWord, long millisecondsBetweenPings) {
+            i_status = statusWord;
             l_millisecondsBetweenPings = millisecondsBetweenPings;
         }
                 
         // Add setters and getters for internal variables
-        public synchronized void setStatus(String statusWord) {
-            s_status = statusWord;
+        public void setStatus(int statusWord) {
+            i_status = statusWord;
         }
-        public String getStatus() {
-            return s_status;
+        public int getStatus() {
+            return i_status;
         }
         
         /**
@@ -223,8 +245,8 @@ public class Connection extends JPanel implements ActionListener {
         
         @Override
         public void run() {
-            while ((s_status.equals("Run")) || (s_status.equals("Pause"))) {
-                if (s_status.equals("Run")) {
+            while (i_status == RUN) {
+                try {
                     // Need to ping supplied destination based on operating system
                     long l_timeBeforePing, l_timeAfterPing;
                     boolean b_isReachable;
@@ -233,24 +255,20 @@ public class Connection extends JPanel implements ActionListener {
                     b_isReachable = isReachable(address);
                     l_timeAfterPing = System.nanoTime();
                     resultSet.add(new PingStatistic(b_isReachable, l_timeBeforePing, l_timeAfterPing));
-                }
-                updateLabel();
-                // We have completed this round, sleep for defined duration
-                try {
+                    updateLabel();
+                    // We have completed this round, sleep for defined duration
                     Thread.sleep(l_millisecondsBetweenPings);
                 } catch (InterruptedException ex) {
-                    // An error has prevented sleep, stop operation
-                    ex.printStackTrace();
-                    setStatus("Stop");
+                    // Something has prevented sleep, stop operation
+                    setStatus(STOP);
                 }
-            }
-            if (s_status.equals("Stop")) {
-                resultSet.clear();
-            }
+            } 
         }
     }
-    private class StatisticsView extends JFrame implements WindowListener {
-        private JLabel l_successfulPings = new JLabel("Successful Pings: ");
+    private class StatisticsView extends JFrame implements WindowListener, Runnable {
+        private JLabel l_successfulPings = new JLabel("Successful Pings: " + getNumOfSuccessfulPings() + " (" + percentageOfSuccessfulPings() + "%)");
+        private JLabel l_unsuccessfulPings = new JLabel("Unsuccessful Pings: " + (resultSet.size() - getNumOfSuccessfulPings()) + " (" + percentageOfUnsuccessfulPings() + "%)");
+        private JLabel l_pingCount = new JLabel("Total Pings: " + resultSet.size());
         
         public StatisticsView() {
             // Setup the swing specifics
@@ -270,7 +288,21 @@ public class Connection extends JPanel implements ActionListener {
             p_overview.setOpaque(false);
             p_overview.setBorder(new EmptyBorder(5,5,5,5));
             p_overview.setLayout(new GridLayout(0,1));
-            p_overview.add(l_successfulPings);
+            JPanel p_successfulPings = new JPanel();
+            p_successfulPings.setLayout(new FlowLayout(FlowLayout.CENTER));
+            p_successfulPings.setOpaque(false);
+            p_overview.add(p_successfulPings);
+            p_successfulPings.add(l_successfulPings);
+            JPanel p_unsuccessfulPings = new JPanel();
+            p_unsuccessfulPings.setLayout(new FlowLayout(FlowLayout.CENTER));
+            p_unsuccessfulPings.setOpaque(false);
+            p_overview.add(p_unsuccessfulPings);
+            p_unsuccessfulPings.add(l_unsuccessfulPings);
+            JPanel p_pingCount = new JPanel();
+            p_pingCount.setLayout(new FlowLayout(FlowLayout.CENTER));
+            p_pingCount.setOpaque(false);
+            p_overview.add(p_pingCount);
+            p_pingCount.add(l_pingCount);
         }
         
         /**
@@ -286,6 +318,11 @@ public class Connection extends JPanel implements ActionListener {
             }
         }
         
+        /**
+         * getNumOfSuccessfulPings returns the number of successful ping
+         * results as an integer.
+         * @return successful ping requests
+         */
         public int getNumOfSuccessfulPings() {
             int success = 0;
             for (int i=0; i<resultSet.size(); i++) {
@@ -294,6 +331,35 @@ public class Connection extends JPanel implements ActionListener {
                 }
             }
             return success;
+        }
+        
+        /**
+         * percentageOfSuccessfulPings returns a double that represents the
+         * percentage of successful ping requests.
+         * @return percentage of successful ping requests
+         */
+        public double percentageOfSuccessfulPings() {
+            int success = getNumOfSuccessfulPings();
+            if (resultSet.isEmpty()) {
+                return 0;
+            } else {
+                return round((((double)success)/((double)resultSet.size()))*100, 5, BigDecimal.ROUND_HALF_UP);
+            }
+        }
+        
+        /**
+         * percentageOfUnsuccessfulPings returns a double that represents the
+         * percentage of unsuccessful ping requests.
+         * @return percentage of unsuccessful ping requests
+         */
+        public double percentageOfUnsuccessfulPings() {
+            double success = getNumOfSuccessfulPings();
+            double failure = resultSet.size()-success;
+            if (resultSet.isEmpty()) {
+                return 0;
+            } else {
+                return round((failure/((double)resultSet.size()))*100, 5, BigDecimal.ROUND_HALF_UP);
+            }
         }
 
         @Override
@@ -318,5 +384,21 @@ public class Connection extends JPanel implements ActionListener {
 
         @Override
         public void windowDeactivated(WindowEvent e) {}
+
+        @Override
+        public void run() {
+            while (isVisible()) {
+                // Done with this round of work, stop
+                l_successfulPings.setText("Successful Pings: " + getNumOfSuccessfulPings() + " (" + percentageOfSuccessfulPings() + "%)");
+                l_unsuccessfulPings.setText("Unsuccessful Pings: " + (resultSet.size() - getNumOfSuccessfulPings()) + " (" + percentageOfUnsuccessfulPings() + "%)");
+                l_pingCount.setText("Total Pings: " + resultSet.size());
+                setTitle("Statistics for connection to " + tf_address.getText());
+                try {
+                    Thread.sleep(DEFAULT_MILLISECONDS_BETWEEN_PINGS);
+                } catch (InterruptedException ex) {
+                    setStatsVisible(false);
+                }
+            }
+        }
     }
 }
