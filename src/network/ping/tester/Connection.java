@@ -5,11 +5,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
-import java.lang.Thread.State;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -276,10 +273,12 @@ public class Connection extends JPanel implements ActionListener {
         }
     }
     private class StatisticsView extends JFrame implements WindowListener, Runnable {
-        private JLabel l_successfulPings = new JLabel("Successful Pings: " + getNumOfSuccessfulPings() + " (" + percentageOfSuccessfulPings() + "%)");
-        private JLabel l_unsuccessfulPings = new JLabel("Unsuccessful Pings: " + (resultSet.size() - getNumOfSuccessfulPings()) + " (" + percentageOfUnsuccessfulPings() + "%)");
-        private JLabel l_pingCount = new JLabel("Total Pings: " + resultSet.size());
-        private JLabel l_averageSuccessfulLatency = new JLabel("Average Successful Ping Latency: " + averageSuccessfulPingDuration() + " (milliseconds)");
+        private JLabel l_successfulPings = new JLabel();
+        private JLabel l_unsuccessfulPings = new JLabel();
+        private JLabel l_pingCount = new JLabel();
+        private JLabel l_averageSuccessfulLatency = new JLabel();
+        private JLabel l_averageTotalLatency = new JLabel();
+        private JLabel l_averageDeviationInSuccessfulPingDuration = new JLabel();
         
         public StatisticsView() {
             // Setup the swing specifics
@@ -290,11 +289,17 @@ public class Connection extends JPanel implements ActionListener {
             JTabbedPane tp_panes = new JTabbedPane();
             add(tp_panes);
             JPanel p_overview = new JPanel();
-            JPanel p_results = new JPanel();
-            JPanel p_time = new JPanel();
+            /*
+             * The below items will be developed later
+             * 
+             * JPanel p_results = new JPanel();
+             * JPanel p_time = new JPanel();
+            */
             tp_panes.addTab("Overview", null, p_overview, "Overview of ping results");
-            tp_panes.addTab("Ping Results", null, p_results, "Percentage chart of ping results");
-            tp_panes.addTab("Latency", null, p_time, "Latency results of successful pings");
+            /*
+             * tp_panes.addTab("Ping Results", null, p_results, "Percentage chart of ping results");
+             * tp_panes.addTab("Latency", null, p_time, "Latency results of successful pings");
+             */
             // Setup the overview JPanel
             p_overview.setOpaque(false);
             p_overview.setBorder(new EmptyBorder(5,5,5,5));
@@ -319,6 +324,16 @@ public class Connection extends JPanel implements ActionListener {
             p_averageSuccessfulLatency.setOpaque(false);
             p_overview.add(p_averageSuccessfulLatency);
             p_averageSuccessfulLatency.add(l_averageSuccessfulLatency);
+            JPanel p_totalSuccessfulLatency = new JPanel();
+            p_totalSuccessfulLatency.setLayout(new FlowLayout(FlowLayout.CENTER));
+            p_totalSuccessfulLatency.setOpaque(false);
+            p_overview.add(p_totalSuccessfulLatency);
+            p_totalSuccessfulLatency.add(l_averageTotalLatency);
+            JPanel p_averageDeviationInSuccessfulPingDuration = new JPanel();
+            p_averageDeviationInSuccessfulPingDuration.setLayout(new FlowLayout(FlowLayout.CENTER));
+            p_averageDeviationInSuccessfulPingDuration.setOpaque(false);
+            p_overview.add(p_averageDeviationInSuccessfulPingDuration);
+            p_averageDeviationInSuccessfulPingDuration.add(l_averageDeviationInSuccessfulPingDuration);
         }
         
         /**
@@ -399,6 +414,45 @@ public class Connection extends JPanel implements ActionListener {
             }
             return round(total/(double)duration.size(), 5, BigDecimal.ROUND_HALF_UP);
         }
+        
+        /**
+         * averageTotalPingDuration calculates the total ping duration.
+         * @return ping result average duration in milliseconds
+         */
+        public double averageTotalPingDuration() {
+            if (resultSet.size() == 0) {
+                return 0;
+            }
+            double total = 0;
+            for (int i=0; i<resultSet.size(); i++) {
+                total += ((double)(resultSet.get(i).getEndTime() - resultSet.get(i).getBeginningTime())/1000000);
+            }
+            return round(total/(double)resultSet.size(), 5, BigDecimal.ROUND_HALF_UP);
+        }
+        
+        /**
+         * averageDeviationInSuccessfulPingDuration shows the average deviation 
+         * in milliseconds between successful ping requests.
+         * @return ping deviation average in milliseconds
+         */
+        public double averageDeviationInSuccessfulPingDuration() {
+            if (resultSet.size() == 0) {
+                return 0;
+            }
+            double average = averageSuccessfulPingDuration();
+            int successCount = 0;
+            double variation = 0;
+            for (int i=0; i<resultSet.size(); i++) {
+                if (resultSet.get(i).getSuccess() == true) {
+                    successCount++;
+                    variation += round(Math.abs(((resultSet.get(i).getEndTime() - resultSet.get(i).getBeginningTime())/1000000)-average), 5, BigDecimal.ROUND_HALF_UP);
+                }
+            }
+            if (successCount == 0) {
+                return 0;
+            }
+            return round(variation/successCount, 5, BigDecimal.ROUND_HALF_UP);
+        }
 
         @Override
         public void windowOpened(WindowEvent e) {}
@@ -431,6 +485,8 @@ public class Connection extends JPanel implements ActionListener {
                 l_unsuccessfulPings.setText("Unsuccessful Pings: " + (resultSet.size() - getNumOfSuccessfulPings()) + " (" + percentageOfUnsuccessfulPings() + "%)");
                 l_pingCount.setText("Total Pings: " + resultSet.size());
                 l_averageSuccessfulLatency.setText("Average Successful Ping Latency: " + averageSuccessfulPingDuration() + " (milliseconds)");
+                l_averageTotalLatency.setText("Average Total Ping Latency: " + averageTotalPingDuration() + " (milliseconds)");
+                l_averageDeviationInSuccessfulPingDuration.setText("Average Deviation In Successful Ping Duration: " + averageDeviationInSuccessfulPingDuration() + " (milliseconds)");
                 setTitle("Statistics for connection to " + tf_address.getText());
                 try {
                     Thread.sleep(DEFAULT_MILLISECONDS_BETWEEN_PINGS);
