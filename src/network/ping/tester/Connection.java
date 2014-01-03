@@ -134,12 +134,23 @@ public class Connection extends JPanel implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent ae) {
         if (ae.getSource() == b_restart) {
-            resultSet.clear();
-            t_ping.interrupt();
-            pp_ping = new PingPerformer(PingPerformer.STOP, DEFAULT_MILLISECONDS_BETWEEN_PINGS);
-            t_ping = new Thread(pp_ping);
-            pp_ping.setStatus(PingPerformer.RUN);
-            t_ping.start();
+            boolean safeJoin = true;
+            pp_ping.setStatus(PingPerformer.STOP);
+            try {
+                if (t_ping != null) {
+                    t_ping.join();
+                }
+            } catch (InterruptedException ex) {
+                safeJoin = false;
+            }
+            if (safeJoin) {
+                resultSet.clear();
+                t_ping = new Thread(pp_ping);
+                pp_ping.setStatus(PingPerformer.RUN);
+                t_ping.start();
+            } else {
+                resultSet.clear();
+            }
         } else if ((ae.getSource() == tf_address) || (ae.getSource() == b_test) || (ae.getSource() == b_start)) {
             // Check to see if the user asked to stop (saving stats)
             if (pp_ping.getStatus() == PingPerformer.STOP) {
@@ -198,6 +209,7 @@ public class Connection extends JPanel implements ActionListener {
         public static final int RUN = 0;
         public static final int PAUSE = 1;
         public static final int STOP = 2;
+        long l_timeBeforePing, l_timeAfterPing;
 
         public PingPerformer(int statusWord, long millisecondsBetweenPings) {
             i_status = statusWord;
@@ -230,15 +242,16 @@ public class Connection extends JPanel implements ActionListener {
                         // For Linux and OSX
                         cmd = "ping -c 1 " + tf_address.getText();
                 }
+                l_timeBeforePing = System.nanoTime();
                 Process myProcess = Runtime.getRuntime().exec(cmd);
                 myProcess.waitFor();
+                l_timeAfterPing = System.nanoTime();
                 if(myProcess.exitValue() == 0) {
                     return true;
                 } else {
                     return false;
                 }
             } catch(Exception e) {
-                e.printStackTrace();
                 return false;
             }
         }
@@ -248,12 +261,9 @@ public class Connection extends JPanel implements ActionListener {
             while (i_status == RUN) {
                 try {
                     // Need to ping supplied destination based on operating system
-                    long l_timeBeforePing, l_timeAfterPing;
                     boolean b_isReachable;
                     String address = tf_address.getText();
-                    l_timeBeforePing = System.nanoTime();
                     b_isReachable = isReachable(address);
-                    l_timeAfterPing = System.nanoTime();
                     resultSet.add(new PingStatistic(b_isReachable, l_timeBeforePing, l_timeAfterPing));
                     updateLabel();
                     // We have completed this round, sleep for defined duration
@@ -269,6 +279,7 @@ public class Connection extends JPanel implements ActionListener {
         private JLabel l_successfulPings = new JLabel("Successful Pings: " + getNumOfSuccessfulPings() + " (" + percentageOfSuccessfulPings() + "%)");
         private JLabel l_unsuccessfulPings = new JLabel("Unsuccessful Pings: " + (resultSet.size() - getNumOfSuccessfulPings()) + " (" + percentageOfUnsuccessfulPings() + "%)");
         private JLabel l_pingCount = new JLabel("Total Pings: " + resultSet.size());
+        private JLabel l_averageSuccessfulLatency = new JLabel("Average Successful Ping Latency: " + averageSuccessfulPingDuration() + " (milliseconds)");
         
         public StatisticsView() {
             // Setup the swing specifics
@@ -303,6 +314,11 @@ public class Connection extends JPanel implements ActionListener {
             p_pingCount.setOpaque(false);
             p_overview.add(p_pingCount);
             p_pingCount.add(l_pingCount);
+            JPanel p_averageSuccessfulLatency = new JPanel();
+            p_averageSuccessfulLatency.setLayout(new FlowLayout(FlowLayout.CENTER));
+            p_averageSuccessfulLatency.setOpaque(false);
+            p_overview.add(p_averageSuccessfulLatency);
+            p_averageSuccessfulLatency.add(l_averageSuccessfulLatency);
         }
         
         /**
@@ -361,6 +377,28 @@ public class Connection extends JPanel implements ActionListener {
                 return round((failure/((double)resultSet.size()))*100, 5, BigDecimal.ROUND_HALF_UP);
             }
         }
+        
+        /**
+         * averageSuccessfulPingDuration calculates the average ping duration
+         * of only the successful ping results.
+         * @return ping result average duration in milliseconds
+         */
+        public double averageSuccessfulPingDuration() {
+            if (getNumOfSuccessfulPings() == 0) {
+                return 0;
+            }
+            ArrayList<Double> duration = new ArrayList<>(0);
+            for (int i=0; i<resultSet.size(); i++) {
+                if (resultSet.get(i).getSuccess() == true) {
+                    duration.add((double)(resultSet.get(i).getEndTime() - resultSet.get(i).getBeginningTime()));
+                }
+            }
+            double total = 0;
+            for (int i=0; i<duration.size(); i++) {
+                total += duration.get(i)/1000000;
+            }
+            return round(total/(double)duration.size(), 5, BigDecimal.ROUND_HALF_UP);
+        }
 
         @Override
         public void windowOpened(WindowEvent e) {}
@@ -392,6 +430,7 @@ public class Connection extends JPanel implements ActionListener {
                 l_successfulPings.setText("Successful Pings: " + getNumOfSuccessfulPings() + " (" + percentageOfSuccessfulPings() + "%)");
                 l_unsuccessfulPings.setText("Unsuccessful Pings: " + (resultSet.size() - getNumOfSuccessfulPings()) + " (" + percentageOfUnsuccessfulPings() + "%)");
                 l_pingCount.setText("Total Pings: " + resultSet.size());
+                l_averageSuccessfulLatency.setText("Average Successful Ping Latency: " + averageSuccessfulPingDuration() + " (milliseconds)");
                 setTitle("Statistics for connection to " + tf_address.getText());
                 try {
                     Thread.sleep(DEFAULT_MILLISECONDS_BETWEEN_PINGS);
